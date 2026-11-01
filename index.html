@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>별하람 시계 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#171a4a;--card:#2b318a;--card2:#3a41a8;--ink:#f4f6ff;--star:#ffd34d;--mint:#5eead4;--red:#ff6b81;--navy:#232770;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;min-height:100vh;background:var(--bg) radial-gradient(circle at 15% 12%,#fff 0 1.5px,transparent 2px),radial-gradient(circle at 80% 8%,#ffd34d 0 2px,transparent 2.5px),radial-gradient(circle at 60% 30%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 25% 70%,#fff 0 1.5px,transparent 2px),radial-gradient(circle at 90% 75%,#fff 0 1px,transparent 1.5px);color:var(--ink);font-family:'Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:20px}
+.app{max-width:560px;margin:0 auto;padding:16px}
+h1{font-size:44px;margin:12px 0 4px;text-align:center;color:var(--star);letter-spacing:1px}
+.sub{text-align:center;margin:0 0 20px;opacity:.85}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.chip{background:var(--card);border-radius:20px;padding:6px 14px;font-size:18px}
+button{font:inherit;color:inherit;cursor:pointer;border:0}
+button:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gcard{background:var(--card);border-radius:24px;padding:18px 12px;text-align:center;min-height:150px;box-shadow:0 5px 0 #1c2166}
+.gcard:active{transform:translateY(3px);box-shadow:0 2px 0 #1c2166}
+.gcard b{display:block;font-size:42px;font-weight:400}
+.gcard span{display:block;font-size:22px;margin:6px 0 4px;color:var(--star)}
+.gcard small{font-size:15px;opacity:.85}
+.stage{background:var(--card);border-radius:28px;padding:16px;text-align:center}
+.q{font-size:26px;margin:4px 0 8px}
+.clock{width:min(70vw,280px);height:auto;display:block;margin:6px auto}
+.opts{display:grid;gap:10px;margin-top:10px}
+.opt{background:var(--card2);border-radius:18px;padding:14px;font-size:26px;box-shadow:0 4px 0 #1c2166}
+.opt:active{transform:translateY(3px)}
+.opt.ok{background:var(--mint);color:#06332d}
+.opt.no{background:var(--red);color:#4a0012}
+.row{display:flex;gap:10px;justify-content:center;margin-top:10px}
+.row .opt{flex:1}
+.go{background:var(--star);color:#4a3600;box-shadow:0 4px 0 #b88f10}
+.big{font-size:40px;color:var(--star);margin:4px 0}
+.msg{min-height:34px;font-size:26px;margin-top:8px}
+.pairs{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.pc{background:#f2f5ff;color:var(--navy);border-radius:16px;padding:6px;min-height:110px;display:flex;align-items:center;justify-content:center;font-size:24px;border:4px solid transparent}
+.pc .clock{width:100%}
+.pc.sel{border-color:var(--star)}
+.pc.done{background:var(--mint);opacity:.55}
+.stars{font-size:40px;letter-spacing:6px;margin:10px 0;color:var(--star)}
+.stars i{font-style:normal;opacity:.25}
+.stars i.on{opacity:1}
+@media (prefers-reduced-motion:no-preference){.pop{animation:pop .4s}}
+@keyframes pop{0%{transform:scale(.8)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+</style>
+</head>
+<body>
+<div class="app" id="app"></div>
+<script>
+const $=s=>document.querySelector(s), app=$('#app');
+const M=[0,10,20,30,40,50];
+const rnd=n=>Math.floor(Math.random()*n), pick=a=>a[rnd(a.length)];
+const shuffle=a=>a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(x=>x[1]);
+const norm=t=>((t%720)+720)%720;
+const label=t=>{t=norm(t);let h=Math.floor(t/60)||12,m=t%60;return m?`${h}시 ${m}분`:`${h}시`};
+const newT=()=>rnd(12)*60+pick(M);
+let st={g:0,r:0,sc:0,max:5,total:0,lock:false};
+let tries=0;
+function beep(ok){try{const c=beep.c||(beep.c=new (window.AudioContext||window.webkitAudioContext)());const o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=ok?880:220;g.gain.value=.08;o.start();o.stop(c.currentTime+(ok?.18:.25));}catch(e){}}
+
+function clock(t){
+  t=norm(t);
+  let s='<svg viewBox="0 0 200 200" class="clock" role="img" aria-label="시계"><circle cx="100" cy="100" r="96" fill="#f2f5ff" stroke="#ffd34d" stroke-width="6"/>';
+  for(let i=1;i<=12;i++){
+    const a=i*Math.PI/6,x=100+Math.sin(a)*68,y=100-Math.cos(a)*68;
+    s+=`<text x="${x}" y="${y+7}" text-anchor="middle" font-size="20" fill="#232770" font-family="Jua,sans-serif">${i}</text>`;
+    if(i%2===0){const x2=100+Math.sin(a)*88,y2=100-Math.cos(a)*88;
+      s+=`<text x="${x2}" y="${y2+3}" text-anchor="middle" font-size="9" fill="#e5484d" font-family="Jua,sans-serif">${(i%12)*5}</text>`;}
+  }
+  s+=`<line x1="100" y1="100" x2="100" y2="58" stroke="#232770" stroke-width="8" stroke-linecap="round" transform="rotate(${t*0.5} 100 100)"/>`;
+  s+=`<line x1="100" y1="100" x2="100" y2="34" stroke="#e5484d" stroke-width="5" stroke-linecap="round" transform="rotate(${(t%60)*6} 100 100)"/>`;
+  s+='<circle cx="100" cy="100" r="9" fill="#ffd34d"/><text x="100" y="105" text-anchor="middle" font-size="12" fill="#232770">★</text></svg>';
+  return s;
+}
+function opts(t){ // correct + two near distractors
+  const s=new Set([norm(t)]);
+  while(s.size<3){s.add(norm(t+pick([-30,-20,-10,10,20,30])));}
+  return shuffle([...s]);
+}
+function menu(){
+  app.innerHTML=`<h1>★ 별하람 시계 2 ★</h1><p class="sub">시침과 분침이 10분씩 움직여요!</p>
+  <div class="chip" style="width:fit-content;margin:0 auto 16px">모은 별 ★ ${st.total}개</div>
+  <div class="menu">${[
+    ['👀','시계 읽기','시계를 보고 몇 시 몇 분인지 맞혀요'],
+    ['⏰','알람 맞추기','10분 버튼으로 시계를 맞춰요'],
+    ['⏩','10분 뒤·전','시간이 지나면 몇 시일까요?'],
+    ['🃏','짝꿍 카드','시계와 시간을 짝지어요']
+  ].map((g,i)=>`<button class="gcard" data-g="${i}"><b>${g[0]}</b><span>${g[1]}</span><small>${g[2]}</small></button>`).join('')}</div>`;
+  app.querySelectorAll('.gcard').forEach(b=>b.onclick=()=>start(+b.dataset.g));
+}
+function start(g){st.g=g;st.r=0;st.sc=0;st.max=g===3?3:5;next();}
+function next(){
+  st.lock=false;tries=0;
+  if(st.g===3){if(st.r===0){st.r=1;return g4();}return end();}
+  if(st.r>=5)return end();
+  st.r++;[g1,g2,g3][st.g]();
+}
+function frame(inner){
+  const prog=st.g===3?'':`${st.r} / 5`;
+  app.innerHTML=`<div class="top"><button class="chip" id="back">← 메뉴</button><span class="chip">${prog} &nbsp; ★ ${st.sc}</span></div><div class="stage pop">${inner}</div>`;
+  $('#back').onclick=menu;
+}
+function say(ok,text){const m=$('#msg');if(m){m.textContent=text;}beep(ok);}
+function good(){st.sc++;st.total++;say(true,'★ 정답이에요! 별 하나 얻었어요!');setTimeout(next,1200);}
+
+function g1(){
+  const t=newT();
+  frame(`<div class="q">지금 몇 시 몇 분일까요?</div>${clock(t)}<div class="opts" id="o"></div><div class="msg" id="msg"></div>`);
+  buildOpts(t,t);
+}
+function buildOpts(t,ans){
+  $('#o').innerHTML=opts(ans).map(v=>`<button class="opt" data-v="${v}">${label(v)}</button>`).join('');
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{
+    if(st.lock)return;
+    if(+b.dataset.v===norm(ans)){st.lock=true;b.classList.add('ok');good();}
+    else{b.classList.add('no');say(false,'다시 생각해 볼까요?');b.disabled=true;}
+  });
+}
+function g2(){
+  let t0=newT(),goal=newT();while(goal===t0)goal=newT();
+  let cur=t0;
+  const draw=()=>{$('#ck').innerHTML=clock(cur);$('#dg').textContent=label(cur);};
+  frame(`<div class="q">⏰ 알람이 울려요!</div><div class="big">${label(goal)}</div>
+  <div id="ck"></div><div class="q" id="dg" style="font-size:22px;opacity:.85"></div>
+  <div class="row"><button class="opt" id="m">◀ 10분 전</button><button class="opt" id="p">10분 뒤 ▶</button></div>
+  <div class="row"><button class="opt go" id="ok">맞췄어요!</button></div><div class="msg" id="msg"></div>`);
+  draw();
+  $('#m').onclick=()=>{cur=norm(cur-10);draw();};
+  $('#p').onclick=()=>{cur=norm(cur+10);draw();};
+  $('#ok').onclick=()=>{
+    if(st.lock)return;
+    if(cur===norm(goal)){st.lock=true;good();}
+    else say(false,'시침과 분침을 다시 봐요!');
+  };
+}
+function g3(){
+  const t=newT(),d=pick([10,20,30]),dir=pick([1,-1]),ans=norm(t+dir*d);
+  frame(`<div class="q">이 시계의 <span style="color:var(--star)">${d}분 ${dir>0?'뒤':'전'}</span>은?</div>${clock(t)}<div class="q" style="font-size:22px;opacity:.85">지금: ${label(t)}</div><div class="opts" id="o"></div><div class="msg" id="msg"></div>`);
+  buildOpts(t,ans);
+}
+function g4(){
+  const ts=[];while(ts.length<3){const t=newT();if(!ts.includes(t))ts.push(t);}
+  const cards=shuffle(ts.flatMap(t=>[{t,k:'c'},{t,k:'d'}]));
+  frame(`<div class="q">같은 시간끼리 짝을 지어요!</div><div class="pairs">${cards.map((c,i)=>`<button class="pc" data-i="${i}">${c.k==='c'?clock(c.t):label(c.t)}</button>`).join('')}</div><div class="msg" id="msg"></div>`);
+  let sel=null,done=0;
+  const bs=[...document.querySelectorAll('.pc')];
+  bs.forEach((b,i)=>b.onclick=()=>{
+    if(b.classList.contains('done')||st.lock)return;
+    if(sel===null){sel=i;b.classList.add('sel');return;}
+    if(sel===i){b.classList.remove('sel');sel=null;return;}
+    const a=cards[sel],c=cards[i];
+    if(a.t===c.t&&a.k!==c.k){
+      bs[sel].classList.remove('sel');bs[sel].classList.add('done');b.classList.add('done');
+      st.sc++;st.total++;done++;sel=null;say(true,'★ 짝을 찾았어요!');
+      if(done===3)setTimeout(next,1000);
+    }else{bs[sel].classList.remove('sel');sel=null;say(false,'다른 짝이에요. 다시!');}
+    document.querySelector('.chip:last-child').innerHTML=`★ ${st.sc}`;
+  });
+}
+function end(){
+  const n=st.sc,mx=st.max;
+  const msg=n===mx?'모두 맞혔어요! 별하람 박사예요!':n>=mx-2?'잘했어요! 조금만 더 하면 박사!':'괜찮아요, 다시 하면 더 잘할 수 있어요!';
+  app.innerHTML=`<div class="stage pop"><h1 style="font-size:36px">참 잘했어요!</h1><div class="stars">${Array.from({length:mx},(_,i)=>`<i class="${i<n?'on':''}">★</i>`).join('')}</div><div class="q">${msg}</div><div class="row"><button class="opt go" id="again">다시 하기</button><button class="opt" id="home">메뉴로</button></div></div>`;
+  $('#again').onclick=()=>start(st.g);$('#home').onclick=menu;
+  beep(true);
+}
+menu();
+</script>
+</body>
+</html>
